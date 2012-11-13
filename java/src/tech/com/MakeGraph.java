@@ -3,6 +3,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -18,7 +19,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class MakeGraph {
 	
-	static String file = "titles";
+	static String file = "smalltitles";
+
+	/*
+	 * See README
+	 */
 	
 	public static void main(String args[]) throws IOException {
 		Map<Integer,String> lines = importLines();
@@ -26,8 +31,11 @@ public class MakeGraph {
 		Map<Integer,Set<Overlap>> overlaps = Overlap.overlap(lines);
 		System.out.println("overlaps");
 		
-		countReachable(overlaps,flip(overlaps));
+		List<Integer> useless = foundUseless(overlaps,flip(overlaps));
 		
+		Map<Integer,Set<Overlap>> pruned = prune(overlaps,useless);
+		
+		System.out.println(foundUseless(pruned,flip(pruned)));
 		
 		//System.out.println(longestPathDAG(overlaps));
 		
@@ -40,6 +48,51 @@ public class MakeGraph {
 
 		//System.out.println(o);
 		//System.out.println(contract(removeUseless(overlaps)));	
+	}
+	
+	public static void writeGraph(Map<Integer,Set<Overlap>> g, OutputStream out) throws IOException {
+		
+		out.write(g.size());
+		
+		for(Entry<Integer,Set<Overlap>> e : g.entrySet()) {
+			out.write(intToTwoBytes(e.getKey()));
+			out.write(intToTwoBytes(e.getValue().size()));
+			for(Overlap o : e.getValue()) {
+				out.write(intToTwoBytes(o.suf));
+				out.write(intToTwoBytes(o.len));
+			}
+		}
+		
+	}
+	
+	public static byte[] intToTwoBytes(int i) {
+		byte[] res = new byte[2];
+		res[0] = (byte)i;
+		res[1] = (byte)(i>>8);
+		
+		return res;
+	}
+	
+	public static Map<Integer,Set<Overlap>> prune(Map<Integer,Set<Overlap>> g, List<Integer> u) {
+		Map<Integer,Set<Overlap>> newG = new HashMap<Integer,Set<Overlap>>();
+		
+		Set<Integer> useless = new HashSet<Integer>(u);
+		
+		for(Entry<Integer,Set<Overlap>> ent : g.entrySet()) {
+			if(useless.contains(ent))
+				continue;
+			
+			List<Overlap> os = new LinkedList<Overlap>(ent.getValue());
+			Set<Overlap> newOs = new HashSet<Overlap>();
+			
+			for(Overlap o : os)
+				if(!useless.contains(o.suf))
+					newOs.add(new Overlap(o));
+					
+			newG.put(ent.getKey(), newOs);				
+		}		
+		
+		return newG;
 	}
 	
 	public static List<Integer> longestPathDAG(Map<Integer,Set<Overlap>> g) {
@@ -97,17 +150,21 @@ public class MakeGraph {
 		return flipped;
 	}
 	
-	public static void countReachable(Map<Integer,Set<Overlap>> g, Map<Integer,Set<Integer>> gflip) {
+	public static List<Integer> foundUseless(Map<Integer,Set<Overlap>> g, Map<Integer,Set<Integer>> gflip) {
+		
+		List<Integer> useless = new LinkedList<Integer>();
 		
 		for(Integer i : g.keySet()) {
-			AtomicInteger count = new AtomicInteger(0);
+			AtomicInteger count = new AtomicInteger(-2);
+
 			DFS2(i,g,(Set<Integer>)new HashSet<Integer>(),new LinkedList<Integer>(), count);
 			DFS3(i,gflip,(Set<Integer>)new HashSet<Integer>(),new LinkedList<Integer>(), count);
 			
 			if(count.get() < 1000)
-				System.out.println(i + " " + count.get());
+				useless.add(i);
 		}
 		
+		return useless;
 	}
 	
 	private static void DFS3(Integer v, Map<Integer, Set<Integer>> g, Set<Integer> visited, LinkedList<Integer> path, AtomicInteger state) {

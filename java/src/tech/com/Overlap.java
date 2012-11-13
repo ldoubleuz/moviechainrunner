@@ -84,7 +84,7 @@ public class Overlap {
 			String[] pref = (String[]) e.getValue();
 			all.add(new Overlap(pref.length,e.getKey()));
 		}
-		overlaps.put(-1,all);
+		overlaps.put(all.size(),all);
 		
 		
 		return overlaps;
