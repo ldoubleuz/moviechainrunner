@@ -1,6 +1,7 @@
 package tech.com; 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -22,7 +23,7 @@ public class MakeGraph {
 	static String file = "smalltitles";
 
 	/*
-	 * See README
+	 * See Graph_Format.txt
 	 */
 	
 	public static void main(String args[]) throws IOException {
@@ -36,6 +37,17 @@ public class MakeGraph {
 		Map<Integer,Set<Overlap>> pruned = prune(overlaps,useless);
 		
 		System.out.println(foundUseless(pruned,flip(pruned)));
+		
+		String root = new File("").getAbsolutePath();
+		root = root.substring(0, root.lastIndexOf(File.separator));
+		File f = new File(root + File.separator + "c" + File.separator + file);
+		System.out.println(f.getAbsoluteFile());
+		f.createNewFile();
+		OutputStream o = new FileOutputStream(f);
+		writeGraph(overlaps,o);
+		o.close();
+		
+		System.out.println(overlaps);
 		
 		//System.out.println(longestPathDAG(overlaps));
 		
@@ -52,17 +64,18 @@ public class MakeGraph {
 	
 	public static void writeGraph(Map<Integer,Set<Overlap>> g, OutputStream out) throws IOException {
 		
-		out.write(g.size());
+		out.write(intToTwoBytes(g.size()));
 		
 		for(Entry<Integer,Set<Overlap>> e : g.entrySet()) {
 			out.write(intToTwoBytes(e.getKey()));
 			out.write(intToTwoBytes(e.getValue().size()));
 			for(Overlap o : e.getValue()) {
 				out.write(intToTwoBytes(o.suf));
-				out.write(intToTwoBytes(o.len));
+				out.write(o.len & 0xff);
+				out.write(0);
 			}
 		}
-		
+		out.flush();		
 	}
 	
 	public static byte[] intToTwoBytes(int i) {
