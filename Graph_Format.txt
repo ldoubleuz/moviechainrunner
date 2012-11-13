@@ -1,0 +1,28 @@
+A graph representing the movie titles are as follows:
+
+Every title corresponds to one vertex. There is an edge from vertex u to
+vertex v if the word corresponding to v overlaps with the word 
+corresponding to u, and the weight is the number of new words added by
+overlapping the two words. For example, for u = "Dawn of the Dead" and
+v = "Dead Man Walking", there is an edge with weight 2 from u to v.
+ 
+The vertices on a graph should be 0 index numbers. The mapping from ints
+to titles should be handled outside of the graph representation.
+ 
+Additionally, on a graph with titles n (on vertices 0...(n-1)), there must
+be a vertex number n not corresponding to any particular title. Vertrex n
+should have edges to each vertex, where the weight of the edge to a vertex
+is the number of words in the title corresponding to the destination vertex.
+
+
+The serialized format for a graph is:
+
+The first two bytes specify the number of vertices. Theose bytes are
+followed by a list of vertices specified as such:
+The first two bytes specify the index of the edge. The second two bytes
+specify the number of out edges in the graph. The rest of the line
+consists of 4*n bytes, where n is the number of out edges. In each group
+of 4 bytes, the first two are the vertex the edge goes to and the second
+two are the weight of the edge. All numbers should be little endian.
+
+Put no bytes between vertices.
