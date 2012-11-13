@@ -17,12 +17,13 @@ is the number of words in the title corresponding to the destination vertex.
 
 The serialized format for a graph is:
 
-The first two bytes specify the number of vertices. Theose bytes are
+The first two bytes specify the number of vertices. Those bytes are
 followed by a list of vertices specified as such:
-The first two bytes specify the index of the edge. The second two bytes
+The first two bytes specify the index of the vertex. The second two bytes
 specify the number of out edges in the graph. The rest of the line
 consists of 4*n bytes, where n is the number of out edges. In each group
-of 4 bytes, the first two are the vertex the edge goes to and the second
-two are the weight of the edge. All numbers should be little endian.
+of 4 bytes, the first two are the vertex the edge goes to and the third is 
+the weight of the edge, and the fourth is a padding byte. All numbers should
+be little endian.
 
 Put no bytes between vertices.
