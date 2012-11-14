@@ -27,12 +27,69 @@ typedef struct graph graph;
 
 graph* readGraph(FILE *fin);
 void printGraph(graph* g);
+vertex* topSort(graph* g);
+graph* flip(graph* g);
+void freeGraph(graph* g);
 
 int main(int argc, char** argv) {
    FILE *input = fopen(FNAME,"r");
    graph* g = readGraph(input);
+   graph* f = flip(g);
+
    printGraph(g);
+   printGraph(f);
+
    fclose(input);
+   free(g);
+   free(f);
+   
+
+}
+
+vertex* topSort(graph* g) {
+   //TODO
+}
+
+void freeGraph(graph* g) {
+   for(int i=g->numV-1;i>=0;i--)
+      free(g->verts[i].edges);
+   free(g->verts);
+   free(g);
+}
+
+graph* flip(graph* g) {
+   int numIn[g->numV];
+   for(int i=g->numV - 1; i >= 0; i--)
+      numIn[i] = 0;
+
+   for(int i=0;i<g->numV;i++) {
+      vertex v = g->verts[i];
+      for(int j=0;j<v.numE;j++)
+         numIn[v.edges[j].dest]++;
+   }
+
+   graph* flipped = malloc(sizeof(struct graph));
+
+   flipped->numV = g->numV;
+   flipped->verts = malloc(flipped->numV * sizeof(struct vertex));
+
+   for(int i=0;i<g->numV;i++) {
+      flipped->verts[i].label = i;
+      flipped->verts[i].numE = numIn[i];
+      flipped->verts[i].edges = calloc(numIn[i],sizeof(struct arc));
+      numIn[i] = 0;
+   }
+
+   for(int i=0;i<g->numV;i++) {
+      short vl = g->verts[i].label;
+      for(int j=0;j<g->verts[i].numE;j++) {
+         short old_dest_num = g->verts[i].edges[j].dest;
+         flipped->verts[old_dest_num].edges[numIn[old_dest_num]].dest = vl;
+         numIn[old_dest_num]++;
+      }
+   }
+
+   return flipped;
 }
 
 graph* readGraph(FILE *fin) {
@@ -60,6 +117,8 @@ graph* readGraph(FILE *fin) {
       memmove(v->edges,data,edgesBytes);
       data+=edgesBytes;
    }
+
+   free(data);
 
    return g;
 }
