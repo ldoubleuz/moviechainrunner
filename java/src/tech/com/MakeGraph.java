@@ -1,7 +1,6 @@
 package tech.com; 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -72,9 +71,7 @@ public class MakeGraph {
 		int[] cuts = new int[cycles.size()];
 		Overlap[] removedEdges = new Overlap[cycles.size()];
 		
-		int cycleIndex = 0;
-		
-		while(cycleIndex < cuts.length) {
+		search : while(true) {
 			
 			for(int i=0;i<cuts.length;i++) {
 				int u = cycles.get(i).get(cuts[i]);
@@ -98,10 +95,15 @@ public class MakeGraph {
 				g.get(cycles.get(i).get(cuts[i])).add(removedEdges[i]);
 			}
 			
-			cuts[cycleIndex]++;
-			if(cuts[cycleIndex] == cycles.get(cycleIndex).size()) {
-				cuts[cycleIndex] = 0;
-				cycleIndex++;
+			int carryIndex = 0;
+			cuts[carryIndex]++;
+			while(cuts[carryIndex] == cycles.get(carryIndex).size()) {
+				cuts[carryIndex] = 0;
+				carryIndex++;
+				if(carryIndex == cycles.size())
+					break search ;
+				cuts[carryIndex]++;
+			
 			}
 		}
 		
