@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class MakeGraph {
 	
-	static String file = "smalltitles";
+	static String file = "titlecycle";
 
 	/*
 	 * See Graph_Format.txt
@@ -32,10 +32,11 @@ public class MakeGraph {
 		Map<Integer,Set<Overlap>> overlaps = Overlap.overlap(lines);
 		System.out.println("overlaps");
 		
-		List<Integer> useless = foundUseless(overlaps,flip(overlaps));
+		System.out.println(longestPathDA(overlaps));
+		//List<Integer> useless = foundUseless(overlaps,flip(overlaps));
 		
-		Map<Integer,Set<Overlap>> pruned = prune(overlaps,useless);
-		
+		//Map<Integer,Set<Overlap>> pruned = prune(overlaps,useless);
+		/*
 		System.out.println(foundUseless(pruned,flip(pruned)));
 		
 		String root = new File("").getAbsolutePath();
@@ -48,8 +49,8 @@ public class MakeGraph {
 		o.close();
 		
 		System.out.println(overlaps);
-		
-		//System.out.println(longestPathDAG(overlaps));
+		*/
+		//System.out.println(computeLength(overlaps,longestPathDA(overlaps)));
 		
 		//System.out.println(overlaps);
 		//Map<Integer,Set<Overlap>> co = contract(overlaps);
@@ -62,6 +63,65 @@ public class MakeGraph {
 		//System.out.println(contract(removeUseless(overlaps)));	
 	}
 	
+	public static List<Integer> longestPathDA(Map<Integer,Set<Overlap>> g) {
+		List<Integer> bestPath = null;
+		int pathLength = 0;
+		
+		List<List<Integer>> cycles = new ArrayList<List<Integer>>(cycles(g));
+		
+		int[] cuts = new int[cycles.size()];
+		Overlap[] removedEdges = new Overlap[cycles.size()];
+		
+		int cycleIndex = 0;
+		
+		while(cycleIndex < cuts.length) {
+			
+			for(int i=0;i<cuts.length;i++) {
+				int u = cycles.get(i).get(cuts[i]);
+				int v = cycles.get(i).get((cuts[i]+1) % cycles.get(i).size());
+				List<Overlap> edges = new ArrayList<Overlap>(g.get(u));
+				Overlap o = edges.remove(edges.indexOf(new Overlap(0,v)));
+				g.get(u).remove(o);	
+				removedEdges[i] = o;
+			}
+			System.out.println(g);
+			
+			List<Integer> newPath = longestPathDAG(g);
+			int newLen = computeLength(g,newPath);
+			
+			if(newLen >= pathLength) {
+				newLen = pathLength;
+				bestPath = newPath;
+			}
+			
+			for(int i=0;i<cuts.length;i++) {
+				g.get(cycles.get(i).get(cuts[i])).add(removedEdges[i]);
+			}
+			
+			cuts[cycleIndex]++;
+			if(cuts[cycleIndex] == cycles.get(cycleIndex).size()) {
+				cuts[cycleIndex] = 0;
+				cycleIndex++;
+			}
+		}
+		
+		return bestPath;	
+		
+	}
+	
+	private static int computeLength(Map<Integer, Set<Overlap>> g, List<Integer> newPath) {
+		int len = 0;
+		int curIndex = 0;
+		
+		while(curIndex < newPath.size()-1) {	
+			List<Overlap> os = new ArrayList<Overlap>(g.get(newPath.get(curIndex)));
+			Overlap o = os.get(os.indexOf(new Overlap(0,newPath.get(curIndex+1))));
+			len += o.len;		
+			curIndex++;
+		}
+		return len;
+	}
+
 	public static void writeGraph(Map<Integer,Set<Overlap>> g, OutputStream out) throws IOException {
 		
 		out.write(intToTwoBytes(g.size()));
@@ -119,17 +179,18 @@ public class MakeGraph {
 		int[] weights = new int[g.size()];
 		int[] parent = new int[g.size()];
 		
-		for(int i=0;i<parent.length;i++)
-			parent[i] = -1;
+		for(int i=0;i<parent.length-1;i++)
+			parent[i] = parent.length-1;
+		parent[parent.length - 1] = -2;
 		
 		for(Integer v : topSort) {
 			System.out.println("VVVVVVVVVVVVVVVVVVVV");
 			System.out.println("Current v is "  + v);
 
 			for(Overlap o : g.get(v)) 
-				if(weights[o.suf+1] <= weights[v+1] + o.len) {
-					weights[o.suf+1] = weights[v+1] + o.len;
-					parent[o.suf+1] = v+1;
+				if(weights[o.suf] <= weights[v] + o.len) {
+					weights[o.suf] = weights[v] + o.len;
+					parent[o.suf] = v;
 				}
 			System.out.println(Arrays.toString(parent));
 			System.out.println(Arrays.toString(weights));
@@ -146,8 +207,8 @@ public class MakeGraph {
 			}
 		
 		int cur = maxI;
-		while(cur != 0) {
-			l.add(0,cur-1);
+		while(cur != -2) {
+			l.add(0,cur);
 			cur = parent[cur];
 		}
 		return l;		
@@ -269,7 +330,7 @@ public class MakeGraph {
 		
 		Set<List<Integer>> cycles = new HashSet<List<Integer>>();
 				
-		DFS(new Integer(-1),g,(Set<Integer>)new HashSet<Integer>(),new LinkedList<Integer>(), cycles);
+		DFS(new Integer(g.size()-1),g,(Set<Integer>)new HashSet<Integer>(),new LinkedList<Integer>(), cycles);
 		
 		return cycles;
 	}
@@ -318,7 +379,7 @@ public class MakeGraph {
 				//newG.put(e.getKey(), e.getValue());
 			} else {
 				for(Entry<Integer,Set<Overlap>> e2 : g.entrySet()) {
-					if(e2.getKey() != -1 && e2.getValue().contains(e.getKey())) {
+					if(e2.getKey() != g.size()-1 && e2.getValue().contains(e.getKey())) {
 						useful.add(e.getKey());
 						break;
 						//newG.put(e.getKey(), e.getValue());
