@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class MakeGraph {
 	
-	static String file = "titlecycle";
+	static String file = "smalltitles";
 
 	/*
 	 * See Graph_Format.txt
@@ -31,7 +31,8 @@ public class MakeGraph {
 		Map<Integer,Set<Overlap>> overlaps = Overlap.overlap(lines);
 		System.out.println("overlaps");
 		
-		System.out.println(longestPathDA(overlaps));
+		System.out.println(Arrays.toString(topSort(overlaps,flip(overlaps))));
+		//System.out.println(longestPathDA(overlaps));
 		//List<Integer> useless = foundUseless(overlaps,flip(overlaps));
 		
 		//Map<Integer,Set<Overlap>> pruned = prune(overlaps,useless);
