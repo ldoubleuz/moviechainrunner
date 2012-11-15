@@ -8,7 +8,7 @@
   #define DBG(x)
 #endif
 
-#define FNAME "smalltitles"
+#define FNAME "titlecycle"
 
 struct arc {
    short dest;
@@ -46,11 +46,17 @@ typedef struct dfs_node dfs_node;
 typedef struct ll_node ll_node;
 
 graph* read_graph(FILE *fin);
+
 void print_graph(graph* g);
+void print_path(ll_node* p);
+
+void free_graph(graph* g);
+void free_ll(ll_node* ll,void f(void *o));
+
 vertex* top_sort(graph* g,graph* flipped);
 graph* flip(graph* g);
-void free_graph(graph* g);
 ll_node* longest_path_dag(graph* g, graph* flipped);
+ll_node* cycles(graph* g);
 
 int main(int argc, char** argv) {
    FILE *input = fopen(FNAME,"r");
@@ -58,11 +64,109 @@ int main(int argc, char** argv) {
    graph* f = flip(g);
    fclose(input);
 
+   print_graph(g);
 
+   ll_node* cyc = cycles(g);
+
+   ll_node* cur = cyc;
+   while(cur != NULL) {
+      print_path(cur->data);
+      cur = cur->next;
+   }
+
+   free_ll(cyc,NULL);
    free_graph(g);
    free_graph(f);
 }
 
+/*
+ * Returns a list of all of the cycles in the given graph
+ */
+ll_node* cycles(graph* g) {
+
+   ll_node* cycles = NULL;
+
+   dfs_node* stack = malloc(sizeof(struct dfs_node));
+   stack->vs = g->verts[g->numV-1].edges;
+   stack->len = g->verts[g->numV-1].numE;
+   stack->curI = 0;
+   stack->next = NULL;
+   ll_node* path = NULL;
+
+   char visited[g->numV];
+   for(int i= g->numV - 1;i>=0;i--)
+      visited[i] = 0;
+
+   while(1) {
+
+      while(stack->curI == stack->len) {
+
+         if(path == NULL) {
+            free(stack);
+            return cycles;
+         }
+
+         DBG(("exit %i\n",(int)path->data));
+
+         ll_node* new_path = path->next;
+         free(path);
+         path = new_path;
+
+         dfs_node* stack_new = stack->next;
+         free(stack);
+         stack = stack_new;
+      }
+
+      vertex v = g->verts[stack->vs[stack->curI++].dest];
+
+      if(visited[v.label]) {
+         DBG(("touch %i\n",v.label));
+
+         ll_node* cyc_path = malloc(sizeof(struct ll_node));
+         cyc_path->data = (void*)(long)v.label;
+         cyc_path->next = NULL;
+         
+         ll_node* cur = path;
+         while(cur != NULL && (long)cur->data != v.label) {
+            ll_node* new_cyc_path = malloc(sizeof(struct ll_node));
+            new_cyc_path->data = cur->data;
+            new_cyc_path->next = cyc_path;
+            cyc_path = new_cyc_path;
+
+            cur = cur->next;
+         }
+         
+         if(cur != NULL) {
+            ll_node* new_cycles = malloc(sizeof(struct ll_node));
+            new_cycles->data = cyc_path;
+            new_cycles->next = cycles;
+            cycles = new_cycles;
+         }
+
+      } else {
+         DBG(("enter %i\n",v.label));
+
+         visited[v.label] = 1;
+         ll_node* path_head = malloc(sizeof(struct ll_node));
+         path_head->data = (void*)(long)v.label;
+         path_head->next = path;
+         path = path_head;
+
+         dfs_node* stack_head = malloc(sizeof(struct dfs_node));
+         stack_head->vs = v.edges;
+         stack_head->len = v.numE;
+         stack_head->curI = 0;
+         stack_head->next = stack;
+         stack = stack_head;
+      }
+
+   }
+}
+
+/*
+ * Returns the longest path in the given graph. The given graph must be a DAG.
+ * The reverse of the graph must also be passed to this function
+ */
 ll_node* longest_path_dag(graph* g,graph* flipped) {
    vertex* ord = top_sort(g,flipped);
 
@@ -114,6 +218,9 @@ ll_node* longest_path_dag(graph* g,graph* flipped) {
    return path;
 }
 
+/*
+ * Returns an arrry containing all of the vertices in g in topological order
+ */
 vertex* top_sort(graph* g, graph* flipped) {
    vertex* order = malloc(sizeof(struct vertex) * g->numV);
    int ordI = 0;
@@ -141,13 +248,20 @@ vertex* top_sort(graph* g, graph* flipped) {
       visited[i] = 0;
 
 
-   do {
+   while(1) {
 
       while(stack->curI == stack->len) {
 
          if(path == NULL) {
             free(stack);
-            break;
+
+            for(int i=0;i<g->numV;i++)
+               DBG(("%i  ",order[i].label));
+            DBG(("\n"));
+
+            free(sources);
+            free_graph(flipped);
+            return order;
          }
 
          DBG(("exit %i\n",(int)path->data));
@@ -184,20 +298,14 @@ vertex* top_sort(graph* g, graph* flipped) {
       }else
          DBG(("touch %i\n",v.label));
 
-   } while(path != NULL);
+   }
 
-   for(int i=0;i<g->numV;i++)
-      DBG(("%i  ",order[i].label));
-   DBG(("\n"));
-
-
-
-   free(sources);
-   free_graph(flipped);
-   return order;
 
 }
 
+/*
+ * frees the given graph
+ */
 void free_graph(graph* g) {
    for(int i=g->numV-1;i>=0;i--)
       free(g->verts[i].edges);
@@ -205,6 +313,23 @@ void free_graph(graph* g) {
    free(g);
 }
 
+/*
+ * frees the given linked list. If f is not NULL, calls f on each node's data
+ */
+void free_ll(ll_node* ll,void f(void *o)) {
+   while(ll != NULL) {
+      if(f != NULL)
+         free(ll->data);
+
+      ll_node* ll_old = ll;
+      ll = ll->next;
+      free(ll_old);
+   }
+}
+
+/*
+ * returns a graph containing the vertices of v with flipped edges
+ */
 graph* flip(graph* g) {
    int numIn[g->numV];
    for(int i=g->numV - 1; i >= 0; i--)
@@ -240,6 +365,10 @@ graph* flip(graph* g) {
    return flipped;
 }
 
+/*
+ * Returns a graph read in from the given file. The spec for the file is given
+ * in Graph_format.txt
+ */
 graph* read_graph(FILE *fin) {
    fseek(fin,0L,SEEK_END);
    int sz = ftell(fin);
@@ -271,6 +400,23 @@ graph* read_graph(FILE *fin) {
    return g;
 }
 
+/*
+ * Prints a path
+ */
+void print_path(ll_node* p) {
+   while(p != NULL) {
+      printf("%i",(int)(long)p->data);
+      if(p->next != NULL)
+         printf(" -> ");
+      else
+         printf("\n");
+      p = p->next;
+   }
+}
+
+/*
+ * Prints a graph
+ */
 void print_graph(graph* g) {
 
    for(int i=0;i<g->numV;i++) {
