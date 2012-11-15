@@ -50,20 +50,68 @@ void print_graph(graph* g);
 vertex* top_sort(graph* g,graph* flipped);
 graph* flip(graph* g);
 void free_graph(graph* g);
-vertex* longest_path_dag(graph* g, graph* flipped);
+ll_node* longest_path_dag(graph* g, graph* flipped);
 
 int main(int argc, char** argv) {
    FILE *input = fopen(FNAME,"r");
    graph* g = read_graph(input);
+   graph* f = flip(g);
    fclose(input);
 
-   free_graph(g);
 
+   free_graph(g);
+   free_graph(f);
 }
 
 ll_node* longest_path_dag(graph* g,graph* flipped) {
    vertex* ord = top_sort(g,flipped);
 
+   int weights[g->numV];
+   int parents[g->numV];
+
+   for(int i=g->numV-1;i>=0;i--) {
+      weights[i]=0;
+      parents[i]=-1;
+   }
+
+   for(int i=0;i<g->numV;i++)
+      DBG(("%i %i\t",parents[i],weights[i]));
+   DBG(("\n"));
+   for(int i=0;i<g->numV;i++) {
+      vertex v = ord[i];
+      for(int j = v.numE-1;j>=0;j--) {
+         arc d = v.edges[j];
+         if(weights[d.dest] <= weights[v.label] + d.len) {
+            weights[d.dest] = weights[v.label] + d.len;
+            parents[d.dest] = v.label;
+         }
+      }
+      for(int i=0;i<g->numV;i++)
+         DBG(("%i %i\t",parents[i],weights[i]));
+      DBG(("\n"));
+   }
+
+   int max = 0, maxI = -1;
+   for(int i=g->numV-1;i>=0;i--)
+      if(weights[i] > max) {
+         max = weights[i];
+         maxI = i;
+      }
+
+   ll_node* path = NULL;
+   int cur = maxI;
+   while(cur != -1) {
+      DBG(("%i\n",cur));
+      ll_node* new_path = malloc(sizeof(struct ll_node));
+      new_path->data = (void*)(long)cur;
+      new_path->next = path;
+      path = new_path;
+
+      cur = parents[cur];
+   }
+
+   free(ord);
+   return path;
 }
 
 vertex* top_sort(graph* g, graph* flipped) {
