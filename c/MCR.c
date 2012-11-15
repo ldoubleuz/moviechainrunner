@@ -2,6 +2,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef DEBUG
+  #define DBG(x) printf x
+#else
+  #define DBG(x)
+#endif
+
 #define FNAME "smalltitles"
 
 struct arc {
@@ -21,36 +27,130 @@ struct graph {
    struct vertex* verts;
 };
 
+struct dfs_node {
+   struct arc* vs;
+   int len;
+   int curI;
+   struct dfs_node* next;
+};
+
+struct ll_node {
+   void* data;
+   struct ll_node* next;
+};
+
 typedef struct arc arc;
 typedef struct vertex vertex;
 typedef struct graph graph;
+typedef struct dfs_node dfs_node;
+typedef struct ll_node ll_node;
 
-graph* readGraph(FILE *fin);
-void printGraph(graph* g);
-vertex* topSort(graph* g);
+graph* read_graph(FILE *fin);
+void print_graph(graph* g);
+vertex* top_sort(graph* g,graph* flipped);
 graph* flip(graph* g);
-void freeGraph(graph* g);
+void free_graph(graph* g);
+vertex* longest_path_dag(graph* g, graph* flipped);
 
 int main(int argc, char** argv) {
    FILE *input = fopen(FNAME,"r");
-   graph* g = readGraph(input);
-   graph* f = flip(g);
-
-   printGraph(g);
-   printGraph(f);
-
+   graph* g = read_graph(input);
    fclose(input);
-   free(g);
-   free(f);
+
+   free_graph(g);
+
+}
+
+ll_node* longest_path_dag(graph* g,graph* flipped) {
+   vertex* ord = top_sort(g,flipped);
+
+}
+
+vertex* top_sort(graph* g, graph* flipped) {
+   vertex* order = malloc(sizeof(struct vertex) * g->numV);
+   int ordI = 0;
+
    
+   arc* sources = malloc(sizeof(struct arc) * g->numV);
+   int numSources = 0;
+
+   for(int i = g->numV-1;i>=0;i--)
+      if(g->verts[i].numE == 0)
+         sources[numSources++].dest = i;
+
+   realloc(sources,sizeof(struct arc) * numSources);
+
+
+   dfs_node* stack = malloc(sizeof(struct dfs_node));
+   stack->vs = sources;
+   stack->len = numSources;
+   stack->curI = 0;
+   stack->next = NULL;
+   ll_node* path = NULL;
+
+   char visited[g->numV];
+   for(int i= g->numV - 1;i>=0;i--)
+      visited[i] = 0;
+
+
+   do {
+
+      while(stack->curI == stack->len) {
+
+         if(path == NULL) {
+            free(stack);
+            break;
+         }
+
+         DBG(("exit %i\n",(int)path->data));
+
+         order[ordI++] = g->verts[(int)path->data];
+
+         ll_node* new_path = path->next;
+         free(path);
+         path = new_path;
+
+         dfs_node* stack_new = stack->next;
+         free(stack);
+         stack = stack_new;
+      }
+
+      vertex v = flipped->verts[stack->vs[stack->curI++].dest];
+
+      if(!visited[v.label]) {
+         DBG(("enter %i\n",v.label));
+
+         visited[v.label] = 1;
+         ll_node* path_head = malloc(sizeof(struct ll_node));
+         path_head->data = (void*)(long)v.label;
+         path_head->next = path;
+         path = path_head;
+
+         dfs_node* stack_head = malloc(sizeof(struct dfs_node));
+         stack_head->vs = v.edges;
+         stack_head->len = v.numE;
+         stack_head->curI = 0;
+         stack_head->next = stack;
+         stack = stack_head;
+
+      }else
+         DBG(("touch %i\n",v.label));
+
+   } while(path != NULL);
+
+   for(int i=0;i<g->numV;i++)
+      DBG(("%i  ",order[i].label));
+   DBG(("\n"));
+
+
+
+   free(sources);
+   free_graph(flipped);
+   return order;
 
 }
 
-vertex* topSort(graph* g) {
-   //TODO
-}
-
-void freeGraph(graph* g) {
+void free_graph(graph* g) {
    for(int i=g->numV-1;i>=0;i--)
       free(g->verts[i].edges);
    free(g->verts);
@@ -92,7 +192,7 @@ graph* flip(graph* g) {
    return flipped;
 }
 
-graph* readGraph(FILE *fin) {
+graph* read_graph(FILE *fin) {
    fseek(fin,0L,SEEK_END);
    int sz = ftell(fin);
    fseek(fin,0L,SEEK_SET);
@@ -123,7 +223,7 @@ graph* readGraph(FILE *fin) {
    return g;
 }
 
-void printGraph(graph* g) {
+void print_graph(graph* g) {
 
    for(int i=0;i<g->numV;i++) {
       
