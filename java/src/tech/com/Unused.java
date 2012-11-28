@@ -1,9 +1,5 @@
-package tech.com; 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.OutputStream;
+package tech.com;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -13,54 +9,22 @@ import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.Map.Entry;
 
-public class MakeGraph {
+public class Unused {
 	
-	static String file = "smalltitles";
-
-	/*
-	 * See Graph_Format.txt
-	 */
-	
-	public static void main(String args[]) throws IOException {
-		Map<Integer,String> lines = importLines();
-		System.out.println("loaded");
-		Map<Integer,Set<Overlap>> overlaps = Overlap.overlap(lines);
-		System.out.println("overlaps");
+	private static int computeLength(Map<Integer, Set<Overlap>> g, List<Integer> newPath) {
+		int len = 0;
+		int curIndex = 0;
 		
-		System.out.println(Arrays.toString(topSort(overlaps,flip(overlaps))));
-		//System.out.println(longestPathDA(overlaps));
-		//List<Integer> useless = foundUseless(overlaps,flip(overlaps));
-		
-		//Map<Integer,Set<Overlap>> pruned = prune(overlaps,useless);
-		/*
-		System.out.println(foundUseless(pruned,flip(pruned)));
-		
-		String root = new File("").getAbsolutePath();
-		root = root.substring(0, root.lastIndexOf(File.separator));
-		File f = new File(root + File.separator + "c" + File.separator + file);
-		System.out.println(f.getAbsoluteFile());
-		f.createNewFile();
-		OutputStream o = new FileOutputStream(f);
-		writeGraph(overlaps,o);
-		o.close();
-		
-		System.out.println(overlaps);
-		*/
-		//System.out.println(computeLength(overlaps,longestPathDA(overlaps)));
-		
-		//System.out.println(overlaps);
-		//Map<Integer,Set<Overlap>> co = contract(overlaps);
-		//System.out.println("contracted");
-		//System.out.println(co);
-		//Set<List<Integer>> o = cycles(overlaps);
-		//Set<List<Integer>> o2 = cycles(co);
-
-		//System.out.println(o);
-		//System.out.println(contract(removeUseless(overlaps)));	
+		while(curIndex < newPath.size()-1) {	
+			List<Overlap> os = new ArrayList<Overlap>(g.get(newPath.get(curIndex)));
+			Overlap o = os.get(os.indexOf(new Overlap(0,newPath.get(curIndex+1))));
+			len += o.len;		
+			curIndex++;
+		}
+		return len;
 	}
 	
 	public static List<Integer> longestPathDA(Map<Integer,Set<Overlap>> g) {
@@ -112,43 +76,6 @@ public class MakeGraph {
 		
 	}
 	
-	private static int computeLength(Map<Integer, Set<Overlap>> g, List<Integer> newPath) {
-		int len = 0;
-		int curIndex = 0;
-		
-		while(curIndex < newPath.size()-1) {	
-			List<Overlap> os = new ArrayList<Overlap>(g.get(newPath.get(curIndex)));
-			Overlap o = os.get(os.indexOf(new Overlap(0,newPath.get(curIndex+1))));
-			len += o.len;		
-			curIndex++;
-		}
-		return len;
-	}
-
-	public static void writeGraph(Map<Integer,Set<Overlap>> g, OutputStream out) throws IOException {
-		
-		out.write(intToTwoBytes(g.size()));
-		
-		for(Entry<Integer,Set<Overlap>> e : g.entrySet()) {
-			out.write(intToTwoBytes(e.getKey()));
-			out.write(intToTwoBytes(e.getValue().size()));
-			for(Overlap o : e.getValue()) {
-				out.write(intToTwoBytes(o.suf));
-				out.write(o.len & 0xff);
-				out.write(0);
-			}
-		}
-		out.flush();		
-	}
-	
-	public static byte[] intToTwoBytes(int i) {
-		byte[] res = new byte[2];
-		res[0] = (byte)i;
-		res[1] = (byte)(i>>8);
-		
-		return res;
-	}
-	
 	public static Map<Integer,Set<Overlap>> prune(Map<Integer,Set<Overlap>> g, List<Integer> u) {
 		Map<Integer,Set<Overlap>> newG = new HashMap<Integer,Set<Overlap>>();
 		
@@ -173,7 +100,7 @@ public class MakeGraph {
 	
 	public static List<Integer> longestPathDAG(Map<Integer,Set<Overlap>> g) {
 		List<Integer> l = new LinkedList<Integer>();
-		Map<Integer,Set<Integer>> flipped = flip(g);
+		Map<Integer,Set<Integer>> flipped = Weighted.flip(g);
 		
 		
 		Integer[] topSort = topSort(g,flipped);
@@ -217,61 +144,43 @@ public class MakeGraph {
 		return l;		
 	}
 	
-	public static Map<Integer,Set<Integer>> flip(Map<Integer,Set<Overlap>> g) {
-		Map<Integer,Set<Integer>> flipped = new HashMap<Integer,Set<Integer>>();
-		for(Integer i : g.keySet())
-			flipped.put(i, new HashSet<Integer>());
-		for(Entry<Integer,Set<Overlap>> e : g.entrySet())
-			for(Overlap o : e.getValue())
-				flipped.get(o.suf).add(e.getKey());
-		return flipped;
+	public static Set<List<Integer>> cycles(Map<Integer,Set<Overlap>> g) {
+		
+		Set<List<Integer>> cycles = new HashSet<List<Integer>>();
+				
+		DFS(new Integer(g.size()-1),g,(Set<Integer>)new HashSet<Integer>(),new LinkedList<Integer>(), cycles);
+		
+		return cycles;
 	}
 	
-	public static List<Integer> foundUseless(Map<Integer,Set<Overlap>> g, Map<Integer,Set<Integer>> gflip) {
+	private static Map<Integer,Integer> count = new HashMap<Integer,Integer>();
+	
+	private static void DFS(Integer v, Map<Integer,Set<Overlap>> g, Set<Integer> visited, LinkedList<Integer> path, Set<List<Integer>> state) {
 		
-		List<Integer> useless = new LinkedList<Integer>();
-		
-		for(Integer i : g.keySet()) {
-			AtomicInteger count = new AtomicInteger(-2);
-
-			DFS2(i,g,(Set<Integer>)new HashSet<Integer>(),new LinkedList<Integer>(), count);
-			DFS3(i,gflip,(Set<Integer>)new HashSet<Integer>(),new LinkedList<Integer>(), count);
-			
-			if(count.get() < 1000)
-				useless.add(i);
+		if(visited.contains(v)) {
+			for(int i = 0; i < path.size(); i++) {
+				if(path.get(i).equals(v)) {
+					state.add(new ArrayList<Integer>(path.subList(i, path.size())));
+					for(Integer ver : path.subList(i, path.size())) {
+						if(count.get(ver) == null)
+							count.put(ver, 1);
+						else
+							count.put(ver, count.get(ver)+1);
+					}
+					return;
+				}
+			}
+			return;
 		}
 		
-		return useless;
-	}
-	
-	private static void DFS3(Integer v, Map<Integer, Set<Integer>> g, Set<Integer> visited, LinkedList<Integer> path, AtomicInteger state) {
-		
-		if(visited.contains(v))
-			return;
-		
 		visited.add(v);
 		path.add(v);
-		state.incrementAndGet();
-		
-		for(Integer n : g.get(v))
-			DFS3(n,g,visited,path,state);
-		path.remove(v);		
-	}
-
-	private static void DFS2(Integer v, Map<Integer,Set<Overlap>> g, Set<Integer> visited, LinkedList<Integer> path, AtomicInteger state) {
-		
-		if(visited.contains(v))
-			return;
-		
-		visited.add(v);
-		path.add(v);
-		state.incrementAndGet();
 		
 		for(Overlap n : g.get(v))
-			DFS2(n.suf,g,visited,path,state);
+			DFS(n.suf,g,visited,path,state);
 		path.remove(v);
 	}
-	
+
 	public static Integer[] topSort(Map<Integer,Set<Overlap>> g, Map<Integer,Set<Integer>> flipped) {
 		
 		LinkedList<Integer> sources = new LinkedList<Integer>();
@@ -322,54 +231,6 @@ public class MakeGraph {
 		return topSort;
 	}
 	
-	public static Map<Integer,Integer> longestPath(Map<Integer,Set<Overlap>> g) {
-		Map<Integer,Integer> parents = new HashMap<Integer,Integer>();
-		
-		
-		return parents;
-	}
-	
-	public static Set<List<Integer>> cycles(Map<Integer,Set<Overlap>> g) {
-		
-		Set<List<Integer>> cycles = new HashSet<List<Integer>>();
-				
-		DFS(new Integer(g.size()-1),g,(Set<Integer>)new HashSet<Integer>(),new LinkedList<Integer>(), cycles);
-		
-		return cycles;
-	}
-	
-	private static void DFS(Integer v, Map<Integer,Set<Overlap>> g, Set<Integer> visited, LinkedList<Integer> path, Set<List<Integer>> state) {
-		
-		if(visited.contains(v)) {
-			for(int i = 0; i < path.size(); i++) {
-				if(path.get(i).equals(v)) {
-					state.add(new ArrayList<Integer>(path.subList(i, path.size())));
-					return;
-				}
-			}
-			return;
-		}
-		
-		visited.add(v);
-		path.add(v);
-		
-		for(Overlap n : g.get(v))
-			DFS(n.suf,g,visited,path,state);
-		path.remove(v);
-	}
-	
-	public static Map<Integer,String> importLines() throws IOException {
-		Map<Integer,String> lines = new LinkedHashMap<Integer,String>();		
-		
-		File f = new File(file);
-		BufferedReader br = new BufferedReader(new FileReader(f));
-		String s;
-		int index = 0;
-		while((s = br.readLine()) != null)
-			lines.put(new Integer(index++),s);
-		
-		return lines;		
-	}
 	
 	public static Map<Integer,Set<Overlap>> removeUseless(Map<Integer,Set<Overlap>> g) {
 		Map<Integer,Set<Overlap>> newG = new LinkedHashMap<Integer,Set<Overlap>>();
@@ -402,6 +263,7 @@ public class MakeGraph {
 				
 		return newG;			
 	}
+	
 	
 	/**
 	 * contracts any vertices that only have one out edge backwards
