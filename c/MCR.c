@@ -98,7 +98,7 @@ path* search(graph* g) {
          search_path[stack[cur_i].v.label] = 0;
          cur_i--;
 
-         if(best.len == 252 || cur_i == 0) {
+         if(cur_i == 0) {
             path* p = malloc(sizeof(struct path));
             p->len = best.len;
             p->labels = best.labels;
